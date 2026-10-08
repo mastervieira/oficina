@@ -4,9 +4,14 @@ import java.nio.file.Path;
 import java.sql.SQLException;
 import java.time.LocalDateTime;
 import javafx.application.Application;
+import javafx.application.Platform;
 import javafx.scene.Scene;
 import javafx.scene.control.Alert;
+import javafx.scene.control.ButtonBar;
+import javafx.scene.control.ButtonType;
 import javafx.stage.Stage;
+import pt.oficina.atualizacao.Atualizacao;
+import pt.oficina.atualizacao.VerificadorDeAtualizacoes;
 import pt.oficina.db.Backups;
 import pt.oficina.db.Database;
 import pt.oficina.db.PastaDeDados;
@@ -61,12 +66,26 @@ public class App extends Application {
         if (avisoCopia != null) {
             Dialogos.erro(avisoCopia);
         }
+        VerificadorDeAtualizacoes.verificarEmSegundoPlano(nova -> Platform.runLater(() -> avisarAtualizacao(stage, nova)));
         Path antiga = PastaDeDados.migradaDe();
         if (antiga != null) {
             Dialogos.info("Os dados passaram a ficar na pasta do utilizador, para sobreviverem às atualizações:\n"
                     + ficheiro.getParent() + "\n\nFoi feita uma cópia da base de dados e das cópias de segurança que estavam em:\n"
                     + antiga.getParent() + "\n\nEssa pasta não foi alterada nem apagada; pode eliminá-la quando confirmar que está tudo certo.");
         }
+    }
+
+    /** Só avisa e abre a página no navegador se o utilizador quiser: a app nunca descarrega nem instala nada sozinha. */
+    private void avisarAtualizacao(Stage dono, Atualizacao nova) {
+        ButtonType abrir = new ButtonType("Abrir a página de descarga", ButtonBar.ButtonData.OK_DONE);
+        ButtonType depois = new ButtonType("Mais tarde", ButtonBar.ButtonData.CANCEL_CLOSE);
+        String notas = nova.notas().isEmpty() ? "" : "\n\n" + nova.notas();
+        Alert aviso = new Alert(Alert.AlertType.INFORMATION, "Está disponível a versão " + nova.versao()
+                + " (a sua é a " + Versao.atual() + ")." + notas
+                + "\n\nOs seus dados não são afetados: ficam guardados à parte da aplicação.", abrir, depois);
+        aviso.setHeaderText("Nova versão disponível");
+        aviso.initOwner(dono);
+        aviso.showAndWait().filter(b -> b == abrir).ifPresent(b -> getHostServices().showDocument(nova.pagina().toString()));
     }
 
     @Override

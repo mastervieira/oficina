@@ -19,6 +19,9 @@
     <junit.version>5.14.4</junit.version>
     <poi.version>5.5.1</poi.version>
     <main.class>pt.oficina.Launcher</main.class>
+    <!-- Endereço do ficheiro latest.properties que a app consulta ao arrancar (vazio: sem verificação).
+         Define-se ao compilar a release: -Datualizacoes.url=https://.../latest.properties -->
+    <atualizacoes.url></atualizacoes.url>
 
     <!-- Versões das ferramentas de auditoria (confirmadas no Maven Central em 2026-10-08) -->
     <enforcer.version>3.6.3</enforcer.version>
