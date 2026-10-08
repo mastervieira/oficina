@@ -1,0 +1,66 @@
+/* Estilos da aplicação. Aplicada na janela principal (MainView). */
+
+/*
+ * Ícones: uma Region com uma forma vetorial (-fx-shape) pintada com -fx-background-color. As formas são do
+ * Material Design Icons (Apache License 2.0), desenhadas numa grelha de 24x24.
+ */
+.icone {
+    -fx-min-width: 16px;
+    -fx-pref-width: 16px;
+    -fx-max-width: 16px;
+    -fx-min-height: 16px;
+    -fx-pref-height: 16px;
+    -fx-max-height: 16px;
+    -fx-scale-shape: true;
+    -fx-background-color: #424242;
+}
+.icone-editar {
+    -fx-shape: "M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z";
+}
+.icone-eliminar {
+    -fx-shape: "M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z";
+}
+.botao-icone {
+    -fx-padding: 4px 7px;
+}
+
+/* Botão de ação destrutiva (Eliminar). */
+.botao-perigo {
+    -fx-background-color: #c62828;
+    -fx-text-fill: white;
+    -fx-font-weight: bold;
+}
+.botao-perigo:hover   { -fx-background-color: #b71c1c; }
+.botao-perigo:pressed { -fx-background-color: #8e0000; }
+.botao-perigo .icone  { -fx-background-color: white; }
+
+/*
+ * Cor do texto de uma linha de tabela. A propriedade certa é -fx-text-background-color (as células do tema
+ * derivam dela o seu -fx-text-fill); definir -fx-text-fill na linha não tem efeito.
+ */
+.table-row-cell.linha-alerta      { -fx-text-background-color: #b00020; -fx-font-weight: bold; }
+.table-row-cell.linha-inoperativo { -fx-text-background-color: #b26a00; -fx-font-weight: bold; }
+.table-row-cell.linha-manutencao  { -fx-text-background-color: #1565c0; -fx-font-weight: bold; }
+.table-row-cell.linha-abatido     { -fx-text-background-color: #777777; }
+
+/*
+ * Linha selecionada: repõe o cálculo do tema (texto claro sobre fundo escuro e vice-versa), em vez da cor da
+ * classe, para continuar legível sobre a barra de seleção. (Não se pode escrever -fx-selection-bar-text: o tema
+ * define-o como -fx-text-background-color, o que daria uma referência circular.)
+ */
+.table-row-cell:filled:selected.linha-alerta,
+.table-row-cell:filled:selected.linha-inoperativo,
+.table-row-cell:filled:selected.linha-manutencao,
+.table-row-cell:filled:selected.linha-abatido {
+    -fx-text-background-color: ladder(-fx-background,
+        -fx-light-text-color 45%,
+        -fx-dark-text-color  46%,
+        -fx-dark-text-color  59%,
+        -fx-mid-text-color   60%);
+}
+
+/* Confirmação de "copiado" ao lado da pesquisa. */
+.aviso-copia {
+    -fx-text-fill: #2e7d32;
+    -fx-font-weight: bold;
+}

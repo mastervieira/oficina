@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Exclusões do SpotBugs/FindSecBugs (perfil "security"). O limiar global fica em Low: aqui só se suprimem falsos
+  positivos concretos, cada um com a razão. Ao acrescentar uma entrada: padrão + classe (nunca só o padrão, salvo
+  se for mesmo inaplicável em todo o projeto) e uma frase a dizer porquê. Revisto em 2026-10-08 (SpotBugs 4.10.4).
+-->
+<FindBugsFilter>
+
+  <!-- EI_EXPOSE_REP/REP2: avisa que um campo mutável (Connection, List, nó do JavaFX) é partilhado. Aqui é
+       injeção de dependências entre camadas da mesma aplicação e records de resultados: não há código não fiável
+       na mesma JVM nem fronteira de segurança, por isso a cópia defensiva só custaria desempenho. -->
+  <Match>
+    <Bug pattern="EI_EXPOSE_REP,EI_EXPOSE_REP2"/>
+  </Match>
+
+  <!-- SQL_*: o SQL concatenado só junta constantes do código: o fragmento fixo de CategoriaDao.familia(), o
+       "WHERE" opcional de MovimentoStockDao, nomes de tabela da constante TABELAS, um inteiro de versão e os
+       blocos do próprio schema.sql / migracao-N.sql. Nenhum texto vindo do utilizador ou de ficheiros externos.
+       Todos os valores do utilizador passam por PreparedStatement com parâmetros. -->
+  <Match>
+    <Bug pattern="SQL_INJECTION_JDBC,SQL_NONCONSTANT_STRING_PASSED_TO_EXECUTE,SQL_PREPARED_STATEMENT_GENERATED_FROM_NONCONSTANT_STRING"/>
+    <Or>
+      <Class name="pt.oficina.dao.CategoriaDao"/>
+      <Class name="pt.oficina.dao.MovimentoStockDao"/>
+      <Class name="pt.oficina.db.SchemaInitializer"/>
+      <Class name="~pt\.oficina\.tools\.SeedDados(\$.*)?"/>
+    </Or>
+  </Match>
+
+  <!-- NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE: Path.getFileName()/getParent() só devolvem null para a raiz do
+       sistema de ficheiros ("/"), e estes caminhos são ficheiros .db/.xlsx ou pastas dentro de data/. -->
+  <Match>
+    <Bug pattern="NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE"/>
+    <Or>
+      <Class name="pt.oficina.db.Backups"/>
+      <Class name="pt.oficina.excel.ExcelLeitor"/>
+      <Class name="pt.oficina.ui.comum.ExcelUi"/>
+      <Class name="pt.oficina.ui.configuracoes.BaseDadosView"/>
+    </Or>
+  </Match>
+
+  <!-- INFORMATION_EXPOSURE_THROUGH_AN_ERROR_MESSAGE: printStackTrace() vai para o terminal de quem corre a aplicação
+       desktop (é o próprio utilizador/administrador), não para uma resposta a terceiros. O utilizador vê só o texto
+       tratado de Dialogos/ErrosGlobais. -->
+  <Match>
+    <Bug pattern="INFORMATION_EXPOSURE_THROUGH_AN_ERROR_MESSAGE"/>
+    <Or>
+      <Class name="pt.oficina.App"/>
+      <Class name="pt.oficina.ui.comum.Dialogos"/>
+      <Class name="pt.oficina.ui.comum.ErrosGlobais"/>
+      <Class name="pt.oficina.tools.SeedDados"/>
+    </Or>
+  </Match>
+
+  <!-- IMPROPER_UNICODE: toLowerCase(Locale.ROOT) é deliberado. Em Imagens compara nomes de formato ASCII
+       ("png", "jpeg"); em Texto e TabelaPesquisavel normaliza para pesquisa (NFD, sem acentos, depois minúsculas),
+       sem decisões de segurança. -->
+  <Match>
+    <Bug pattern="IMPROPER_UNICODE"/>
+    <Or>
+      <Class name="pt.oficina.service.Imagens"/>
+      <Class name="pt.oficina.service.Texto"/>
+      <Class name="pt.oficina.ui.comum.TabelaPesquisavel"/>
+    </Or>
+  </Match>
+
+  <!-- PATH_TRAVERSAL_IN: o ficheiro é o que o próprio utilizador escolhe na janela do sistema; a pasta inicial
+       vem da última escolha dele. Não há caminho controlado por terceiros. -->
+  <Match>
+    <Bug pattern="PATH_TRAVERSAL_IN"/>
+    <Class name="pt.oficina.ui.comum.EscolherFicheiro"/>
+  </Match>
+
+  <!-- FE_FLOATING_POINT_EQUALITY: "d == Math.rint(d)" é o teste intencional "o número é inteiro" ao ler células Excel. -->
+  <Match>
+    <Bug pattern="FE_FLOATING_POINT_EQUALITY"/>
+    <Class name="~pt\.oficina\.service\.ImportacaoService(\$.*)?"/>
+  </Match>
+
+  <!-- UC_USELESS_CONDITION: falso positivo da análise de constantes (VERSAO_ATUAL); a condição "v < 6" é a
+       migração a aplicar e é exercida em MigracaoTest. -->
+  <Match>
+    <Bug pattern="UC_USELESS_CONDITION"/>
+    <Class name="pt.oficina.db.SchemaInitializer"/>
+  </Match>
+
+  <!-- Ferramenta de dados de teste (SeedDados/SeedArtigos), fora do uso normal da aplicação: o gerador pseudoaleatório
+       tem de ser determinístico (semente fixa) e o formato vem de tabelas constantes. -->
+  <Match>
+    <Bug pattern="PREDICTABLE_RANDOM,FORMAT_STRING_MANIPULATION"/>
+    <Or>
+      <Class name="~pt\.oficina\.tools\.SeedDados(\$.*)?"/>
+      <Class name="~pt\.oficina\.tools\.SeedArtigos(\$.*)?"/>
+    </Or>
+  </Match>
+
+  <!-- THROWS_METHOD_THROWS_RUNTIMEEXCEPTION: SegundoPlano volta a lançar a exceção que o trabalho em segundo plano
+       lançou (comportamento documentado). MC_OVERRIDABLE_METHOD_CALL_IN_CONSTRUCTOR: getChildren() de um VBox
+       próprio; a classe não tem subclasses que o sobreponham. -->
+  <Match>
+    <Class name="pt.oficina.ui.comum.SegundoPlano"/>
+    <Bug pattern="THROWS_METHOD_THROWS_RUNTIMEEXCEPTION"/>
+  </Match>
+  <Match>
+    <Class name="pt.oficina.ui.comum.TabelaPesquisavel"/>
+    <Bug pattern="MC_OVERRIDABLE_METHOD_CALL_IN_CONSTRUCTOR"/>
+  </Match>
+
+  <!-- URF_UNREAD_FIELD: campos guardados mas só usados no construtor (qualidade, sem impacto de segurança).
+       Limpeza à parte. -->
+  <Match>
+    <Bug pattern="URF_UNREAD_FIELD"/>
+    <Or>
+      <Class name="pt.oficina.ui.configuracoes.ListaPane"/>
+      <Class name="pt.oficina.ui.inventario.ArtigosView"/>
+      <Class name="pt.oficina.ui.inventario.MaquinasView"/>
+    </Or>
+  </Match>
+
+</FindBugsFilter>

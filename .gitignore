@@ -1,0 +1,6 @@
+target/
+data/
+dist/
+
+# Exportações do Excel da aplicação (dados da oficina): não pertencem ao repositório
+/*.xlsx

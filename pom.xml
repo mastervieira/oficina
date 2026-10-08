@@ -1,0 +1,272 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <groupId>pt.oficina</groupId>
+  <artifactId>oficina</artifactId>
+  <version>1.0.0-SNAPSHOT</version>
+  <packaging>jar</packaging>
+  <name>Oficina</name>
+
+  <properties>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <maven.compiler.release>25</maven.compiler.release>
+    <javafx.version>25.0.4</javafx.version>
+    <javafx.platform>linux</javafx.platform>
+    <sqlite.version>3.53.4.0</sqlite.version>
+    <junit.version>5.14.4</junit.version>
+    <poi.version>5.5.1</poi.version>
+    <main.class>pt.oficina.Launcher</main.class>
+
+    <!-- Versões das ferramentas de auditoria (confirmadas no Maven Central em 2026-10-08) -->
+    <enforcer.version>3.6.3</enforcer.version>
+    <versions.plugin.version>2.22.0</versions.plugin.version>
+    <spotbugs.plugin.version>4.10.4.1</spotbugs.plugin.version>
+    <findsecbugs.version>1.14.0</findsecbugs.version>
+    <dependency-check.version>13.0.0</dependency-check.version>
+    <!-- versions:display-*-updates não propõe alpha/beta/rc/milestone/early-access -->
+    <maven.version.ignore>(?i).*(alpha|beta|[-.]rc|[-.]m\d+|-ea|snapshot).*</maven.version.ignore>
+  </properties>
+
+  <!-- O POI e o commons-compress (dependência dele) pedem versões diferentes de commons-io e commons-codec.
+       O Maven já escolhia as mais altas; fixam-se aqui para o enforcer (dependencyConvergence) passar. -->
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>commons-io</groupId>
+        <artifactId>commons-io</artifactId>
+        <version>2.21.0</version>
+      </dependency>
+      <dependency>
+        <groupId>commons-codec</groupId>
+        <artifactId>commons-codec</artifactId>
+        <version>1.20.0</version>
+      </dependency>
+      <!-- O POI 5.5.1 traz o log4j-api 2.24.3 (CVE-2026-49844, moderado; só alcançável com log4j-core + JsonTemplateLayout,
+           que aqui não existem). Corrigido em 2.25.5 / 2.26.1. -->
+      <dependency>
+        <groupId>org.apache.logging.log4j</groupId>
+        <artifactId>log4j-api</artifactId>
+        <version>2.26.1</version>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+
+  <dependencies>
+    <dependency>
+      <groupId>org.openjfx</groupId>
+      <artifactId>javafx-controls</artifactId>
+      <version>${javafx.version}</version>
+      <classifier>${javafx.platform}</classifier>
+    </dependency>
+    <dependency>
+      <groupId>org.xerial</groupId>
+      <artifactId>sqlite-jdbc</artifactId>
+      <version>${sqlite.version}</version>
+    </dependency>
+    <!-- Importar/exportar Excel (.xlsx) -->
+    <dependency>
+      <groupId>org.apache.poi</groupId>
+      <artifactId>poi-ooxml</artifactId>
+      <version>${poi.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <version>${junit.version}</version>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <finalName>oficina</finalName>
+    <resources>
+      <!-- Só versao.properties é filtrado (${project.version}); os restantes ficheiros, como o schema.sql com os separadores "@@", não -->
+      <resource>
+        <directory>src/main/resources</directory>
+        <filtering>false</filtering>
+        <excludes><exclude>pt/oficina/versao.properties</exclude></excludes>
+      </resource>
+      <resource>
+        <directory>src/main/resources</directory>
+        <filtering>true</filtering>
+        <includes><include>pt/oficina/versao.properties</include></includes>
+      </resource>
+    </resources>
+    <plugins>
+      <plugin>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <version>3.13.0</version>
+      </plugin>
+      <plugin>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <version>3.5.2</version>
+        <configuration>
+          <!-- o POI usa o log4j-api sem implementação e imprime um erro inofensivo -->
+          <systemPropertyVariables>
+            <log4j2.statusLoggerLevel>OFF</log4j2.statusLoggerLevel>
+          </systemPropertyVariables>
+        </configuration>
+      </plugin>
+
+      <!-- Regras do build: JDK/Maven certos e dependências coerentes (corre em toda a compilação) -->
+      <plugin>
+        <artifactId>maven-enforcer-plugin</artifactId>
+        <version>${enforcer.version}</version>
+        <executions>
+          <execution>
+            <id>regras-do-build</id>
+            <phase>validate</phase>
+            <goals><goal>enforce</goal></goals>
+            <configuration>
+              <rules>
+                <requireJavaVersion><version>[25,)</version></requireJavaVersion>
+                <requireMavenVersion><version>[3.9.6,)</version></requireMavenVersion>
+                <banDuplicatePomDependencyVersions/>
+                <dependencyConvergence/>
+                <requireUpperBoundDeps/>
+              </rules>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+
+      <!-- Dependências e plugins desatualizados (sob pedido, não corre sozinho):
+           mvn versions:display-dependency-updates versions:display-plugin-updates -->
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>versions-maven-plugin</artifactId>
+        <version>${versions.plugin.version}</version>
+      </plugin>
+
+      <!-- Execução em desenvolvimento: mvn javafx:run -->
+      <plugin>
+        <groupId>org.openjfx</groupId>
+        <artifactId>javafx-maven-plugin</artifactId>
+        <version>0.0.8</version>
+        <configuration>
+          <mainClass>${main.class}</mainClass>
+        </configuration>
+      </plugin>
+
+      <!-- JAR executável único (fat jar): mvn package -> target/oficina.jar -->
+      <plugin>
+        <artifactId>maven-shade-plugin</artifactId>
+        <version>3.6.0</version>
+        <executions>
+          <execution>
+            <phase>package</phase>
+            <goals><goal>shade</goal></goals>
+            <configuration>
+              <createDependencyReducedPom>false</createDependencyReducedPom>
+              <transformers>
+                <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                  <mainClass>${main.class}</mainClass>
+                  <manifestEntries>
+                    <Implementation-Title>${project.name}</Implementation-Title>
+                    <Implementation-Version>${project.version}</Implementation-Version>
+                  </manifestEntries>
+                </transformer>
+                <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
+              </transformers>
+              <filters>
+                <filter>
+                  <artifact>*:*</artifact>
+                  <excludes>
+                    <exclude>META-INF/*.SF</exclude>
+                    <exclude>META-INF/*.DSA</exclude>
+                    <exclude>META-INF/*.RSA</exclude>
+                    <exclude>module-info.class</exclude>
+                  </excludes>
+                </filter>
+              </filters>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+
+  <profiles>
+    <!-- O JavaFX traz bibliotecas nativas por sistema: o jar gerado só corre no sistema em que foi compilado.
+         Estes perfis escolhem o classificador certo pelo sistema da máquina de build (linux por omissão).
+         Para outro sistema, compila-se nesse sistema (ver scripts/empacotar.sh). -->
+    <profile>
+      <id>javafx-linux-arm64</id>
+      <activation><os><family>unix</family><name>Linux</name><arch>aarch64</arch></os></activation>
+      <properties><javafx.platform>linux-aarch64</javafx.platform></properties>
+    </profile>
+    <profile>
+      <id>javafx-mac-intel</id>
+      <activation><os><family>mac</family><arch>x86_64</arch></os></activation>
+      <properties><javafx.platform>mac</javafx.platform></properties>
+    </profile>
+    <profile>
+      <id>javafx-mac-arm64</id>
+      <activation><os><family>mac</family><arch>aarch64</arch></os></activation>
+      <properties><javafx.platform>mac-aarch64</javafx.platform></properties>
+    </profile>
+    <profile>
+      <id>javafx-windows</id>
+      <activation><os><family>windows</family></os></activation>
+      <properties><javafx.platform>win</javafx.platform></properties>
+    </profile>
+
+    <!-- Auditoria de segurança, fora do build normal (é lenta): mvn -Psecurity verify
+         A chave da NVD vem da variável de ambiente NVD_API_KEY; nunca se escreve aqui nem no repositório. -->
+    <profile>
+      <id>security</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>com.github.spotbugs</groupId>
+            <artifactId>spotbugs-maven-plugin</artifactId>
+            <version>${spotbugs.plugin.version}</version>
+            <configuration>
+              <effort>Max</effort>
+              <threshold>Low</threshold>
+              <failOnError>true</failOnError>
+              <excludeFilterFile>spotbugs-exclude.xml</excludeFilterFile>
+              <plugins>
+                <plugin>
+                  <groupId>com.h3xstream.findsecbugs</groupId>
+                  <artifactId>findsecbugs-plugin</artifactId>
+                  <version>${findsecbugs.version}</version>
+                </plugin>
+              </plugins>
+            </configuration>
+            <executions>
+              <execution>
+                <id>spotbugs-check</id>
+                <phase>verify</phase>
+                <goals><goal>check</goal></goals>
+              </execution>
+            </executions>
+          </plugin>
+          <plugin>
+            <groupId>org.owasp</groupId>
+            <artifactId>dependency-check-maven</artifactId>
+            <version>${dependency-check.version}</version>
+            <configuration>
+              <!-- lê a variável de ambiente NVD_API_KEY; sem ela corre sem chave (lento) em vez de enviar um texto literal -->
+              <nvdApiKeyEnvironmentVariable>NVD_API_KEY</nvdApiKeyEnvironmentVariable>
+              <failBuildOnCVSS>7</failBuildOnCVSS>
+              <suppressionFiles>
+                <suppressionFile>dependency-check-suppressions.xml</suppressionFile>
+              </suppressionFiles>
+            </configuration>
+            <executions>
+              <execution>
+                <id>dependency-check</id>
+                <phase>verify</phase>
+                <goals><goal>check</goal></goals>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
+</project>
