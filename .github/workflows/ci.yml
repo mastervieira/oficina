@@ -1,0 +1,33 @@
+# Em cada push e pull request: compilar, regras do enforcer, testes e análise estática (SpotBugs + FindSecBugs).
+# O Dependency-Check (lento, precisa da chave NVD) não corre aqui: faz-se antes de cada release (ver RELEASE.md).
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  testes:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+      - name: Compilar e testar
+        run: mvn -B verify
+      - name: Análise estática (SpotBugs + FindSecBugs)
+        run: mvn -B -Psecurity -DskipTests compile spotbugs:check
