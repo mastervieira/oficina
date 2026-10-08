@@ -2,7 +2,7 @@
 # Gera o pacote da aplicação com o runtime do Java incluído (o utilizador não precisa de instalar Java).
 #   scripts/empacotar.sh                    app-image: pasta dist/Oficina/ com o executável (qualquer sistema, sem ferramentas extra)
 #   scripts/empacotar.sh --tipo deb         instalador do sistema; tipos: deb, rpm (Linux), msi, exe (Windows), dmg, pkg (macOS)
-#   --sem-testes                            não corre os testes (a CI já os correu antes)
+#   --sem-testes                            não corre os testes (já foram corridos antes, ex.: por scripts/release.sh)
 #   -- ARGS...                              o que vem a seguir passa tal e qual ao jpackage (ex.: opções de assinatura do macOS)
 #
 # O jpackage NÃO faz compilação cruzada: o pacote de cada sistema gera-se nesse sistema (e o JavaFX do jar também:
@@ -54,7 +54,8 @@ fi
 # O jdeps não serve de fonte aqui: sobre o jar com o JavaFX misturado devolve módulos que só existem em certos JDKs.
 MODULOS=java.base,java.desktop,java.logging,java.management,java.naming,java.net.http,java.security.jgss,java.sql,java.xml,java.xml.crypto,jdk.unsupported
 
-rm -rf dist
+# só se limpa o que este script gera: dist/release/ (de scripts/release.sh) e os pacotes anteriores ficam
+rm -rf dist/entrada dist/Oficina
 mkdir -p dist/entrada
 cp target/oficina.jar dist/entrada/
 

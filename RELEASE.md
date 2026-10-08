@@ -1,51 +1,74 @@
-# Como fazer uma release
+# Como fazer uma release (local, sem CI)
 
-## 1. Antes (na sua máquina)
+Cada sistema gera os seus próprios pacotes: o `jpackage` não faz compilação cruzada. Corre-se o mesmo script no
+Linux e no Windows, e juntam-se os ficheiros numa pasta para distribuir.
+
+## 1. Preparar a versão
+
+```
+mvn versions:set -DnewVersion=1.1.0 && mvn versions:commit
+git commit -am "Versão 1.1.0" && git tag v1.1.0
+```
+
+Antes da primeira release, e de tempos a tempos (ver também `spotbugs-exclude.xml` e `dependency-check-suppressions.xml`):
 
 ```
 mvn versions:display-dependency-updates versions:display-plugin-updates     # o que está desatualizado
 NVD_API_KEY=... mvn -Psecurity -DskipTests org.owasp:dependency-check-maven:check   # CVEs (chave fora do repositório)
 osv-scanner scan -r .                                                        # outra base de CVEs
-mvn -Psecurity -DskipTests compile spotbugs:check                            # análise estática
 ```
 
-Falsos positivos: ver `spotbugs-exclude.xml` e `dependency-check-suppressions.xml` (cada entrada com a razão).
+## 2. Gerar os pacotes
 
-## 2. Publicar
+**No Linux:** `scripts/release.sh`
+Testa, analisa (SpotBugs) e gera em `dist/release/`: o `.deb`, o pacote portátil `.tar.gz` e o `SHA256SUMS`.
+Para experimentar sem versão final nem git limpo: `scripts/release.sh --ensaio`.
 
-```
-mvn versions:set -DnewVersion=1.1.0 && mvn versions:commit
-git commit -am "Versão 1.1.0" && git tag v1.1.0
-git push origin main v1.1.0
-mvn versions:set -DnewVersion=1.2.0-SNAPSHOT && mvn versions:commit         # continuar o desenvolvimento
-```
+**No Windows** (a fazer uma vez por PC de build):
+1. Instalar o JDK 25 completo (não só o JRE) e pô-lo no `PATH`/`JAVA_HOME`, o Maven 3.9.6 ou mais recente e o
+   [Git para Windows](https://git-scm.com/download/win) (traz o Git Bash).
+2. Para o `.msi`: instalar o [WiX Toolset 3.14](https://github.com/wixtoolset/wix3/releases) e pôr a pasta `bin`
+   dele no `PATH`. Sem o WiX o script avisa e gera só o pacote portátil `.zip`.
+3. No Git Bash, dentro do projeto: `scripts/release.sh`.
 
-Ao receber a tag, o GitHub Actions (`.github/workflows/release.yml`) corre os testes e a análise estática, gera um
-instalador por sistema (Linux `.deb`, Windows `.msi`, macOS `.dmg` Intel e ARM) e cria a release com `SHA256SUMS` e
-`latest.properties`. A tag tem de ser igual à versão do pom, senão o fluxo pára.
+**Juntar:** copiar para a mesma pasta `dist/release/` os ficheiros do Windows e correr `scripts/release.sh --somas`
+para refazer o `SHA256SUMS` com todos.
 
-As aplicações instaladas consultam `…/releases/latest/download/latest.properties` ao arrancar e **avisam** o
-utilizador (não descarregam nada). Uma versão com sufixo (`1.2.0-rc1`) fica como pré-lançamento e não avisa ninguém.
-Para desligar numa instalação: `-Doficina.atualizacoes=off`.
+## 3. Distribuir
 
-## 3. Assinatura (opcional, mas sem ela os sistemas avisam)
+Copie a pasta `dist/release/` como quiser (pen USB, pasta partilhada, o seu site). Quem recebe pode confirmar o
+ficheiro com `sha256sum -c SHA256SUMS`.
 
-Sem segredos, os pacotes saem **sem assinatura**: o Windows mostra o aviso SmartScreen e o macOS pode bloquear a
-aplicação. Para assinar, crie estes segredos em *Settings → Secrets and variables → Actions*:
-
-| Segredo | Para quê |
+| Sistema | Como instalar |
 |---|---|
-| `MACOS_CERT_P12`, `MACOS_CERT_PASSWORD` | certificado "Developer ID Application" (.p12 em base64) e a sua palavra-passe |
-| `MACOS_SIGNING_NAME` | o nome do certificado sem o prefixo (ex.: `Ana Silva (ABCDE12345)`) |
-| `APPLE_ID`, `APPLE_TEAM_ID`, `APPLE_APP_PASSWORD` | notarização (palavra-passe específica da app) |
-| `WINDOWS_CERT_PFX`, `WINDOWS_CERT_PASSWORD` | certificado de assinatura de código (.pfx em base64) e a sua palavra-passe |
+| Linux (`.deb`) | `sudo apt install ./Oficina-X-linux-x64.deb` |
+| Linux (portátil) | extrair o `.tar.gz` e correr `Oficina/bin/Oficina` |
+| Windows (`.msi`) | duplo clique |
+| Windows (portátil) | extrair o `.zip` e correr `Oficina\Oficina.exe` |
 
-## 4. O que está e não está testado
+Os dados do utilizador ficam fora da instalação (`~/.local/share/Oficina` no Linux, `%APPDATA%\Oficina` no
+Windows), por isso instalar uma versão nova por cima nunca toca na base de dados. Para atualizar, basta instalar o
+pacote novo.
 
-- **Testado aqui (Linux):** `scripts/empacotar.sh` (app-image e `.deb`), a app empacotada a arrancar e a consultar
-  `latest.properties`, e todos os testes.
-- **Não testado:** os workflows nunca correram (validados só com `actionlint`); Windows e macOS (instaladores,
-  perfis do JavaFX, WiX); a assinatura e a notarização (os passos só correm se os segredos existirem; um JVM pode
-  precisar de *entitlements* para ser notarizado).
-- Os testes só correm em Linux: alguns assumem caminhos POSIX e links simbólicos.
-- Ainda não há repositório remoto: crie-o no GitHub (`git remote add origin …`) antes da primeira tag.
+Os pacotes **não são assinados**: o Windows mostra o aviso SmartScreen ("Mais informações" → "Executar mesmo assim").
+Assinar exige um certificado de assinatura de código (pago).
+
+## 4. Avisos de atualização
+
+Ficam desligados (não há servidor onde publicar o `latest.properties`). Para os ligar é preciso hospedar esse
+ficheiro em **https** e compilar com `URL_ATUALIZACOES=https://.../latest.properties scripts/release.sh`. Ver
+`VerificadorDeAtualizacoes`. Uma pasta partilhada ou um endereço http da rede local não são aceites.
+
+## 5. O que está e não está testado
+
+- **Testado (Linux):** `scripts/release.sh --ensaio` completo (testes, SpotBugs, `.deb`, pacote portátil e somas); a
+  app empacotada arranca e cria a base de dados.
+- **Não testado:** tudo o que é Windows (perfil `win` do JavaFX, `jpackage` com WiX, o `.zip`) e macOS.
+- Os testes automáticos só foram corridos em Linux: alguns assumem caminhos POSIX e links simbólicos.
+
+## Opcional: GitHub Actions
+
+Em `.github/workflows/` há uma CI e uma release automática (Linux, Windows e macOS, com assinatura opcional por
+segredos). Estão **desligadas** no repositório porque a conta do GitHub ficou bloqueada por um problema de
+faturação, e nunca chegaram a correr. Para as voltar a ligar: resolver a faturação e
+`gh workflow enable ci.yml` e `gh workflow enable release.yml`.
